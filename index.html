@@ -1,0 +1,214 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to DXF Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .controls {
+            flex: 1;
+            min-width: 300px;
+        }
+        .preview {
+            flex: 2;
+            min-width: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #image-preview {
+            max-width: 100%;
+            max-height: 350px;
+            margin-top: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, button {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .download-btn {
+            margin-top: 10px;
+            background-color: #2196F3;
+        }
+        .download-btn:hover {
+            background-color: #0b7dda;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Image to DXF Converter</h1>
+    <div class="container">
+        <div class="controls">
+            <form id="converter-form">
+                <div class="form-group">
+                    <label for="file">Select Image (PNG or JPEG):</label>
+                    <input type="file" id="file" name="file" accept=".png,.jpg,.jpeg" required>
+                </div>
+                <div class="form-group">
+                    <label for="tolerance">Detail Level (0.1-10):</label>
+                    <input type="range" id="tolerance" name="tolerance" min="0.1" max="10" step="0.1" value="0.5">
+                    <span id="tolerance-value">0.5</span>
+                    <p><small>Lower values = more detail</small></p>
+                </div>
+                <div class="form-group">
+                    <label for="scale">Scale (0.1-10):</label>
+                    <input type="range" id="scale" name="scale" min="0.1" max="10" step="0.1" value="1.0">
+                    <span id="scale-value">1.0</span>
+                </div>
+                <div class="form-group">
+                    <label>Advanced Options:</label>
+                    <div class="advanced-options">
+                        <div>
+                            <input type="checkbox" id="deduplicate" name="deduplicate" checked>
+                            <label for="deduplicate">Remove duplicate contours</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="enhance-contrast" name="enhance-contrast" checked>
+                            <label for="enhance-contrast">Enhance contrast</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" id="convert-btn">Convert to DXF</button>
+            </form>
+            <div id="download-container" style="display: none;">
+                <button id="download-btn" class="download-btn">Download DXF</button>
+            </div>
+        </div>
+        <div class="preview">
+            <h3>Preview</h3>
+            <div id="loading">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
+            <img id="image-preview" src="" alt="Preview will appear here">
+        </div>
+    </div>
+
+    <script>
+        // Display slider values
+        document.getElementById('tolerance').addEventListener('input', function() {
+            document.getElementById('tolerance-value').textContent = this.value;
+            // If there's already an image loaded, update the preview
+            if (document.getElementById('file').files.length > 0) {
+                submitForm();
+            }
+        });
+
+        document.getElementById('scale').addEventListener('input', function() {
+            document.getElementById('scale-value').textContent = this.value;
+            // If there's already an image loaded, update the preview
+            if (document.getElementById('file').files.length > 0) {
+                submitForm();
+            }
+        });
+
+        // Handle file input change
+        document.getElementById('file').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                submitForm();
+            }
+        });
+
+        // Form submission
+        document.getElementById('converter-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitForm();
+        });
+
+        let currentDxfPath = '';
+
+        function submitForm() {
+            const form = document.getElementById('converter-form');
+            const formData = new FormData(form);
+
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('image-preview').style.display = 'none';
+
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('image-preview').style.display = 'block';
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                // Display preview
+                document.getElementById('image-preview').src = data.preview;
+
+                // Show download button
+                document.getElementById('download-container').style.display = 'block';
+                currentDxfPath = data.dxf_path;
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                alert('Error: ' + error);
+            });
+        }
+
+        // Handle download button
+        document.getElementById('download-btn').addEventListener('click', function() {
+            if (currentDxfPath) {
+                window.location.href = '/download/' + currentDxfPath;
+            }
+        });
+    </script>
+</body>
+</html>
+        
